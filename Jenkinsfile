@@ -35,7 +35,7 @@ final def mavens = env.BRANCH_NAME == 'master' ? ['3.6.x', '3.2.x'] : ['3.6.x']
 // all non-EOL versions and the first EA
 final def jdks = [13, 12, 11, 8, 7]
 
-final def options = ['-e', '-V', '-B', '-nsu', '-P', 'run-its']
+final def options = ['-e', '-V', '-B', '-nsu', '-DskipTests', '-DskipITs']
 final def goals = ['clean', 'install']
 final def goalsDepl = ['clean', 'deploy', 'jacoco:report']
 final Map stages = [:]
