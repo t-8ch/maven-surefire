@@ -19,37 +19,20 @@ package org.apache.maven.surefire.extensions;
  * under the License.
  */
 
-import org.apache.maven.surefire.booter.MasterProcessCommand;
+import javax.annotation.Nonnull;
+import java.io.IOException;
 
 /**
- * Commands which are sent from plugin to the forked jvm.
- * <br>
- * <br>
- * magic number : opcode [: opcode specific data]*
- * <br>
- * or data encoded with Base64
- * <br>
- * magic number : opcode [: Base64(opcode specific data)]*
- *
- * The command must be finished by New Line or the character ':'.
- *
  * @author <a href="mailto:tibordigana@apache.org">Tibor Digana (tibor17)</a>
  * @since 3.0.0-M4
  */
-public abstract class ForkedChannel
+public interface ForkNodeFactory
 {
-    private volatile String channelConfig;
-
-    public String getChannelConfig()
-    {
-        return channelConfig;
-    }
-
-    public void setChannelConfig( String channelConfig )
-    {
-        this.channelConfig = channelConfig;
-    }
-
-    public abstract byte[] encode( MasterProcessCommand command );
-    public abstract byte[] encode( MasterProcessCommand command, String data );
+    /**
+     * Opens and closes the channel.
+     *
+     * @return specific implementation of the communication channel
+     * @throws IOException if cannot open the channel
+     */
+    @Nonnull ForkChannel createForkChannel() throws IOException;
 }

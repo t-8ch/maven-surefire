@@ -22,7 +22,6 @@ package org.apache.maven.plugin.surefire.booterclient;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.maven.plugin.surefire.JdkAttributes;
-import org.apache.maven.plugin.surefire.booterclient.lazytestprovider.ExecutableCommandlineFactory;
 import org.apache.maven.plugin.surefire.log.api.NullConsoleLogger;
 import org.apache.maven.shared.utils.StringUtils;
 import org.apache.maven.shared.utils.cli.Commandline;
@@ -31,6 +30,7 @@ import org.apache.maven.surefire.booter.Classpath;
 import org.apache.maven.surefire.booter.ClasspathConfiguration;
 import org.apache.maven.surefire.booter.StartupConfiguration;
 import org.apache.maven.surefire.booter.SurefireBooterForkException;
+import org.apache.maven.surefire.extensions.ForkNodeFactory;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -44,9 +44,7 @@ import java.util.Properties;
 import static java.util.Collections.singletonList;
 import static org.apache.maven.surefire.booter.Classpath.emptyClasspath;
 import static org.fest.util.Files.temporaryFolder;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 
 public class ForkConfigurationTest
@@ -220,7 +218,7 @@ public class ForkConfigurationTest
         assertTrue( tmpDir.mkdirs() );
         return new JarManifestForkConfiguration( emptyClasspath(), tmpDir, null,
                 cwd, new Properties(), argLine, Collections.<String, String>emptyMap(), false, 1, false,
-                platform, new NullConsoleLogger(), mock(ExecutableCommandlineFactory.class) );
+                platform, new NullConsoleLogger(), mock( ForkNodeFactory.class ) );
     }
 
     // based on http://stackoverflow.com/questions/2591083/getting-version-of-java-in-runtime

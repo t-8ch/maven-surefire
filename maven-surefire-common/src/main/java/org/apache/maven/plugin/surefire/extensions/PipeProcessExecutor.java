@@ -1,4 +1,4 @@
-package org.apache.maven.plugin.surefire.booterclient.output;
+package org.apache.maven.plugin.surefire.extensions;
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -19,46 +19,64 @@ package org.apache.maven.plugin.surefire.booterclient.output;
  * under the License.
  */
 
-import org.apache.maven.plugin.surefire.booterclient.lazytestprovider.AbstractCommandReader;
-import org.apache.maven.shared.utils.cli.CommandLineCallable;
-import org.apache.maven.shared.utils.cli.CommandLineException;
-import org.apache.maven.shared.utils.cli.Commandline;
 import org.apache.maven.shared.utils.cli.CommandLineUtils;
+import org.apache.maven.shared.utils.cli.Commandline;
 import org.apache.maven.shared.utils.cli.StreamConsumer;
+import org.apache.maven.surefire.booter.Command;
+import org.apache.maven.surefire.booter.MasterProcessCommand;
+import org.apache.maven.surefire.extensions.CommandReader;
+import org.apache.maven.surefire.extensions.EventHandler;
+import org.apache.maven.surefire.extensions.ExecutableCommandline;
+import org.apache.maven.surefire.extensions.StdErrStreamLine;
+import org.apache.maven.surefire.extensions.StdOutStreamLine;
 
 import javax.annotation.Nonnull;
-
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.Callable;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 
 /**
+ * Commands which are sent from plugin to the forked jvm.
+ * <br>
+ * Events are received from the forked jvm.
+ * <br>
+ * <br>
+ * magic number : opcode [: opcode specific data]*
+ * <br>
+ * or data encoded with Base64
+ * <br>
+ * magic number : opcode [: Base64(opcode specific data)]*
+ *
+ * The command and event must be finished by the character ':' and New Line.
+ *
  * @author <a href="mailto:tibordigana@apache.org">Tibor Digana (tibor17)</a>
  * @since 3.0.0-M4
  */
 final class PipeProcessExecutor
-    implements ExecutableCommandline<String>
+        implements ExecutableCommandline
 {
     @Override
     @Nonnull
-    public CommandLineCallable executeCommandLineAsCallable( @Nonnull Commandline cli,
-                                                             @Nonnull AbstractCommandReader commands,
-                                                             @Nonnull EventHandler<String> events,
-                                                             StreamConsumer stdOut,
-                                                             StreamConsumer stdErr,
-                                                             @Nonnull Runnable runAfterProcessTermination )
-            throws CommandLineException
+    public <T> Callable<Integer> executeCommandLineAsCallable( @Nonnull T cli,
+                                                               @Nonnull CommandReader commands,
+                                                               @Nonnull EventHandler events,
+                                                               StdOutStreamLine stdOut,
+                                                               StdErrStreamLine stdErr,
+                                                               @Nonnull Runnable runAfterProcessTermination )
+            throws Exception
     {
-        return CommandLineUtils.executeCommandLineAsCallable( cli, new CommandReaderAdapter( commands ),
-                new EventHandlerAdapter( events ), stdErr, 0, runAfterProcessTermination, ISO_8859_1 );
+        return CommandLineUtils.executeCommandLineAsCallable( (Commandline) cli, new CommandReaderAdapter( commands ),
+                new EventHandlerAdapter( events ), new StdErrAdapter( stdErr ),
+                0, runAfterProcessTermination, US_ASCII );
     }
 
     private static class EventHandlerAdapter implements StreamConsumer
     {
-        private final EventHandler<String> events;
+        private final EventHandler events;
 
-        private EventHandlerAdapter( EventHandler<String> events )
+        private EventHandlerAdapter( EventHandler events )
         {
             this.events = events;
         }
@@ -72,13 +90,12 @@ final class PipeProcessExecutor
 
     private static class CommandReaderAdapter extends InputStream
     {
-        private final AbstractCommandReader commands;
-
+        private final CommandReader commands;
         private byte[] currentBuffer;
         private int currentPos;
         private volatile boolean closed;
 
-        CommandReaderAdapter( AbstractCommandReader commands )
+        CommandReaderAdapter( CommandReader commands )
         {
             this.commands = commands;
         }
@@ -98,11 +115,14 @@ final class PipeProcessExecutor
 
             if ( currentBuffer == null )
             {
-                currentBuffer = commands.readNextCommand();
-                if ( currentBuffer == null )
+                Command cmd = commands.readNextCommand();
+                if ( cmd == null )
                 {
+                    currentPos = 0;
                     return -1;
                 }
+                MasterProcessCommand cmdType = cmd.getCommandType();
+                currentBuffer = cmdType.hasDataType() ? cmdType.encode( cmd.getData() ) : cmdType.encode();
             }
 
             @SuppressWarnings( "checkstyle:magicnumber" )

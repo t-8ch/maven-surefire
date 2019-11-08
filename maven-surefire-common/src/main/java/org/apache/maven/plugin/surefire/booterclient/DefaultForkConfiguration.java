@@ -20,13 +20,13 @@ package org.apache.maven.plugin.surefire.booterclient;
  */
 
 import org.apache.maven.plugin.surefire.JdkAttributes;
-import org.apache.maven.plugin.surefire.booterclient.lazytestprovider.ExecutableCommandlineFactory;
 import org.apache.maven.plugin.surefire.booterclient.lazytestprovider.OutputStreamFlushableCommandline;
 import org.apache.maven.plugin.surefire.log.api.ConsoleLogger;
 import org.apache.maven.surefire.booter.AbstractPathConfiguration;
 import org.apache.maven.surefire.booter.Classpath;
 import org.apache.maven.surefire.booter.StartupConfiguration;
 import org.apache.maven.surefire.booter.SurefireBooterForkException;
+import org.apache.maven.surefire.extensions.ForkNodeFactory;
 import org.apache.maven.surefire.util.internal.ImmutableMap;
 
 import javax.annotation.Nonnull;
@@ -65,7 +65,7 @@ public abstract class DefaultForkConfiguration
     private final boolean reuseForks;
     @Nonnull private final Platform pluginPlatform;
     @Nonnull private final ConsoleLogger log;
-    @Nonnull private final ExecutableCommandlineFactory executableCommandlineFactory;
+    @Nonnull private final ForkNodeFactory forkNodeFactory;
 
     @SuppressWarnings( "checkstyle:parameternumber" )
     protected DefaultForkConfiguration( @Nonnull Classpath booterClasspath,
@@ -80,7 +80,7 @@ public abstract class DefaultForkConfiguration
                                      boolean reuseForks,
                                      @Nonnull Platform pluginPlatform,
                                      @Nonnull ConsoleLogger log,
-                                     @Nonnull ExecutableCommandlineFactory executableCommandlineFactory )
+                                     @Nonnull ForkNodeFactory forkNodeFactory )
     {
         this.booterClasspath = booterClasspath;
         this.tempDirectory = tempDirectory;
@@ -94,7 +94,7 @@ public abstract class DefaultForkConfiguration
         this.reuseForks = reuseForks;
         this.pluginPlatform = pluginPlatform;
         this.log = log;
-        this.executableCommandlineFactory = executableCommandlineFactory;
+        this.forkNodeFactory = forkNodeFactory;
     }
 
     protected abstract void resolveClasspath( @Nonnull OutputStreamFlushableCommandline cli,
@@ -111,9 +111,9 @@ public abstract class DefaultForkConfiguration
 
     @Nonnull
     @Override
-    public final ExecutableCommandlineFactory getExecutableCommandlineFactory()
+    public final ForkNodeFactory getForkNodeFactory()
     {
-        return executableCommandlineFactory;
+        return forkNodeFactory;
     }
 
     /**

@@ -20,12 +20,12 @@ package org.apache.maven.plugin.surefire.booterclient;
  */
 
 import org.apache.maven.plugin.surefire.JdkAttributes;
-import org.apache.maven.plugin.surefire.booterclient.lazytestprovider.ExecutableCommandlineFactory;
 import org.apache.maven.plugin.surefire.booterclient.lazytestprovider.OutputStreamFlushableCommandline;
 import org.apache.maven.surefire.booter.Classpath;
 import org.apache.maven.surefire.booter.ForkedBooter;
 import org.apache.maven.surefire.booter.StartupConfiguration;
 import org.apache.maven.surefire.booter.SurefireBooterForkException;
+import org.apache.maven.surefire.extensions.ForkNodeFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -40,7 +40,7 @@ public abstract class ForkConfiguration
 {
     static final String DEFAULT_PROVIDER_CLASS = ForkedBooter.class.getName();
 
-    @Nonnull public abstract ExecutableCommandlineFactory getExecutableCommandlineFactory();
+    @Nonnull public abstract ForkNodeFactory getForkNodeFactory();
     @Nonnull public abstract File getTempDirectory();
     @Nullable protected abstract String getDebugLine();
     @Nonnull protected abstract File getWorkingDirectory();

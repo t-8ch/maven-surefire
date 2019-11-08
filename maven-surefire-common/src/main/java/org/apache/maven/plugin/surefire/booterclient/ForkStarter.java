@@ -27,15 +27,13 @@ import org.apache.maven.plugin.surefire.booterclient.lazytestprovider.Notifiable
 import org.apache.maven.plugin.surefire.booterclient.lazytestprovider.OutputStreamFlushableCommandline;
 import org.apache.maven.plugin.surefire.booterclient.lazytestprovider.TestLessInputStream;
 import org.apache.maven.plugin.surefire.booterclient.lazytestprovider.TestProvidingInputStream;
-import org.apache.maven.plugin.surefire.booterclient.output.ExecutableCommandline;
 import org.apache.maven.plugin.surefire.booterclient.output.ForkClient;
 import org.apache.maven.plugin.surefire.booterclient.output.InPluginProcessDumpSingleton;
 import org.apache.maven.plugin.surefire.booterclient.output.NativeStdErrStreamConsumer;
+import org.apache.maven.plugin.surefire.booterclient.output.NativeStdOutStreamConsumer;
 import org.apache.maven.plugin.surefire.booterclient.output.ThreadedStreamConsumer;
 import org.apache.maven.plugin.surefire.log.api.ConsoleLogger;
 import org.apache.maven.plugin.surefire.report.DefaultReporterFactory;
-import org.apache.maven.shared.utils.cli.CommandLineCallable;
-import org.apache.maven.shared.utils.cli.CommandLineException;
 import org.apache.maven.surefire.booter.AbstractPathConfiguration;
 import org.apache.maven.surefire.booter.KeyValueSource;
 import org.apache.maven.surefire.booter.PropertiesWrapper;
@@ -45,6 +43,11 @@ import org.apache.maven.surefire.booter.Shutdown;
 import org.apache.maven.surefire.booter.StartupConfiguration;
 import org.apache.maven.surefire.booter.SurefireBooterForkException;
 import org.apache.maven.surefire.booter.SurefireExecutionException;
+import org.apache.maven.surefire.extensions.ExecutableCommandline;
+import org.apache.maven.surefire.extensions.ForkChannel;
+import org.apache.maven.surefire.extensions.ForkNodeFactory;
+import org.apache.maven.surefire.extensions.StdErrStreamLine;
+import org.apache.maven.surefire.extensions.StdOutStreamLine;
 import org.apache.maven.surefire.providerapi.SurefireProvider;
 import org.apache.maven.surefire.report.StackTraceWriter;
 import org.apache.maven.surefire.suite.RunResult;
@@ -85,8 +88,7 @@ import static org.apache.maven.plugin.surefire.SurefireHelper.DUMP_FILE_PREFIX;
 import static org.apache.maven.plugin.surefire.SurefireHelper.replaceForkThreadsInPath;
 import static org.apache.maven.plugin.surefire.booterclient.ForkNumberBucket.drawNumber;
 import static org.apache.maven.plugin.surefire.booterclient.ForkNumberBucket.returnNumber;
-import static org.apache.maven.plugin.surefire.booterclient.lazytestprovider.TestLessInputStream
-                      .TestLessInputStreamBuilder;
+import static org.apache.maven.plugin.surefire.booterclient.lazytestprovider.TestLessInputStream.TestLessInputStreamBuilder;
 import static org.apache.maven.shared.utils.cli.ShutdownHookUtils.addShutDownHook;
 import static org.apache.maven.shared.utils.cli.ShutdownHookUtils.removeShutdownHook;
 import static org.apache.maven.surefire.booter.SystemPropertyManager.writePropertiesFile;
@@ -189,7 +191,7 @@ public class ForkStarter
                 {
                     closeable.close();
                 }
-                catch ( IOException e )
+                catch ( IOException | RuntimeException e )
                 {
                     // This error does not fail a test and does not necessarily mean that the forked JVM std/out stream
                     // was not closed, see ThreadedStreamConsumer. This error means that JVM wrote messages to a native
@@ -209,10 +211,16 @@ public class ForkStarter
         @Override
         public void close()
         {
-            run();
-            if ( inputStreamCloserHook != null )
+            try
             {
-                removeShutdownHook( inputStreamCloserHook );
+                run();
+            }
+            finally
+            {
+                if ( inputStreamCloserHook != null )
+                {
+                    removeShutdownHook( inputStreamCloserHook );
+                }
             }
         }
     }
@@ -280,10 +288,8 @@ public class ForkStarter
             defaultReporterFactories.add( forkedReporterFactory );
             ForkClient forkClient =
                     new ForkClient( forkedReporterFactory, stream, log, new AtomicBoolean(), forkNumber );
-            ExecutableCommandline<String> executableCommandline =
-                    forkConfiguration.getExecutableCommandlineFactory().createExecutableCommandline( stream );
             return fork( null, props, forkClient, effectiveSystemProperties, forkNumber, stream,
-                    executableCommandline, false );
+                    forkConfiguration.getForkNodeFactory(), false );
         }
         finally
         {
@@ -372,12 +378,9 @@ public class ForkStarter
                         Map<String, String> providerProperties = providerConfiguration.getProviderProperties();
                         try
                         {
-                            ExecutableCommandline<String> executableCommandline =
-                                    forkConfiguration.getExecutableCommandlineFactory()
-                                            .createExecutableCommandline( testProvidingInputStream );
                             return fork( null, new PropertiesWrapper( providerProperties ), forkClient,
                                     effectiveSystemProperties, forkNumber, testProvidingInputStream,
-                                    executableCommandline, true );
+                                    forkConfiguration.getForkNodeFactory(), true );
                         }
                         finally
                         {
@@ -449,13 +452,10 @@ public class ForkStarter
                         TestLessInputStream stream = builder.build();
                         try
                         {
-                            ExecutableCommandline<String> executableCommandline =
-                                    forkConfiguration.getExecutableCommandlineFactory()
-                                            .createExecutableCommandline( stream );
                             return fork( testSet,
                                          new PropertiesWrapper( providerConfiguration.getProviderProperties() ),
                                          forkClient, effectiveSystemProperties, forkNumber, stream,
-                                         executableCommandline, false );
+                                         forkConfiguration.getForkNodeFactory(), false );
                         }
                         finally
                         {
@@ -551,24 +551,25 @@ public class ForkStarter
 
     private RunResult fork( Object testSet, KeyValueSource providerProperties, ForkClient forkClient,
                             SurefireProperties effectiveSystemProperties, int forkNumber,
-                            AbstractCommandReader commandSender, ExecutableCommandline<String> executableCommandline,
+                            AbstractCommandReader commandSender, ForkNodeFactory forkNodeFactory,
                             boolean readTestsFromInStream )
         throws SurefireBooterForkException
     {
         final String tempDir;
         final File surefireProperties;
         final File systPropsFile;
+        final ForkChannel forkChannel;
         try
         {
+            forkChannel = forkNodeFactory.createForkChannel();
             tempDir = forkConfiguration.getTempDirectory().getCanonicalPath();
             BooterSerializer booterSerializer = new BooterSerializer( forkConfiguration );
             Long pluginPid = forkConfiguration.getPluginPlatform().getPluginPid();
-
-            // todo Enrico, add the socket config in providerProperties. The fork VM will read it and connect.
-            surefireProperties = booterSerializer.serialize( providerProperties, providerConfiguration,
-                    startupConfiguration, testSet, readTestsFromInStream, pluginPid, forkNumber );
-
             log.debug( "Determined Maven Process ID " + pluginPid );
+            String connectionString = forkChannel.getForkNodeConnectionString();
+            log.debug( "Fork Channel [" + forkNumber + "] connection string " + connectionString );
+            surefireProperties = booterSerializer.serialize( providerProperties, providerConfiguration,
+                    startupConfiguration, testSet, readTestsFromInStream, pluginPid, forkNumber, connectionString );
 
             if ( effectiveSystemProperties != null )
             {
@@ -604,7 +605,7 @@ public class ForkStarter
         }
 
         ThreadedStreamConsumer threadedStreamConsumer = new ThreadedStreamConsumer( forkClient );
-        CloseableCloser closer = new CloseableCloser( forkNumber, threadedStreamConsumer, commandSender );
+        CloseableCloser closer = new CloseableCloser( forkNumber, threadedStreamConsumer, commandSender, forkChannel );
 
         log.debug( "Forking command line: " + cli );
 
@@ -613,11 +614,12 @@ public class ForkStarter
         SurefireBooterForkException booterForkException = null;
         try
         {
-            NativeStdErrStreamConsumer stdErrConsumer =
-                    new NativeStdErrStreamConsumer( forkClient.getDefaultReporterFactory() );
+            StdErrStreamLine stdErrConsumer = new NativeStdErrStreamConsumer( forkClient.getDefaultReporterFactory() );
+            StdOutStreamLine stdOutConsumer = new NativeStdOutStreamConsumer( log );
+            ExecutableCommandline executableCommandline = forkChannel.createExecutableCommandline();
 
-            CommandLineCallable future = executableCommandline.executeCommandLineAsCallable( cli, commandSender,
-                    threadedStreamConsumer, /*todo stdOut*/ null, stdErrConsumer, closer );
+            Callable<Integer> future = executableCommandline.executeCommandLineAsCallable( cli, commandSender,
+                    threadedStreamConsumer, stdOutConsumer, stdErrConsumer, closer );
 
             currentForkClients.add( forkClient );
 
@@ -633,8 +635,9 @@ public class ForkStarter
                         new SurefireBooterForkException( "Error occurred in starting fork, check output in log" );
             }
         }
-        catch ( CommandLineException e )
+        catch ( Exception e )
         {
+            // CommandLineException from pipes and IOException from sockets
             runResult = failure( forkClient.getDefaultReporterFactory().getGlobalRunStatistics().getRunResult(), e );
             String cliErr = e.getLocalizedMessage();
             Throwable cause = e.getCause();

@@ -242,9 +242,10 @@ public class BooterDeserializerProviderConfigurationTest
             test = "aTest";
         }
         final File propsTest = booterSerializer.serialize( props, booterConfiguration, testProviderConfiguration, test,
-                                                           readTestsFromInStream, 51L, 1 );
+                                                           readTestsFromInStream, 51L, 1, "pipe://" );
         BooterDeserializer booterDeserializer = new BooterDeserializer( new FileInputStream( propsTest ) );
         assertEquals( 51L, (Object) booterDeserializer.getPluginPid() );
+        assertEquals( "pipe://", booterDeserializer.getForkNodeConnectionString() );
         return booterDeserializer.deserialize();
     }
 

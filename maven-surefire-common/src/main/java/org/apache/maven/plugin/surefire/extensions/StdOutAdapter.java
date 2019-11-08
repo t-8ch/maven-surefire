@@ -1,4 +1,4 @@
-package org.apache.maven.plugin.surefire.booterclient.lazytestprovider;
+package org.apache.maven.plugin.surefire.extensions;
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -19,20 +19,24 @@ package org.apache.maven.plugin.surefire.booterclient.lazytestprovider;
  * under the License.
  */
 
-import org.apache.maven.surefire.extensions.ForkedChannelServer;
-
-import java.io.Closeable;
+import org.apache.maven.shared.utils.cli.StreamConsumer;
+import org.apache.maven.surefire.extensions.StdOutStreamLine;
 
 /**
- * Physical implementation of command sender.<br>
- * Instance of {@link AbstractCommandReader} (namely {@link TestLessInputStream} or {@link TestProvidingInputStream})
- * or the implementation of {@link ForkedChannelServer} (supported by MOJO plugin configuration).
  *
- * @author <a href="mailto:tibordigana@apache.org">Tibor Digana (tibor17)</a>
- * @since 3.0.0-M4
  */
-public interface DifferedChannelCommandSender
-    extends NotifiableTestStream, Closeable
+final class StdOutAdapter implements StreamConsumer
 {
-    void setFlushReceiverProvider( FlushReceiverProvider flushReceiverProvider );
+    private final StdOutStreamLine stdOut;
+
+    StdOutAdapter( StdOutStreamLine stdOut )
+    {
+        this.stdOut = stdOut;
+    }
+
+    @Override
+    public void consumeLine( String line )
+    {
+        stdOut.handleLine( line );
+    }
 }

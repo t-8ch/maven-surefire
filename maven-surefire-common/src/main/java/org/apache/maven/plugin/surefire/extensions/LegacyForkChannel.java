@@ -1,4 +1,4 @@
-package org.apache.maven.surefire.extensions;
+package org.apache.maven.plugin.surefire.extensions;
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -19,31 +19,32 @@ package org.apache.maven.surefire.extensions;
  * under the License.
  */
 
-import org.apache.maven.surefire.booter.Command;
+import org.apache.maven.surefire.extensions.ExecutableCommandline;
+import org.apache.maven.surefire.extensions.ForkChannel;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 
 /**
- * @author <a href="mailto:tibordigana@apache.org">Tibor Digana (tibor17)</a>
- * @since 3.0.0-M4
+ *
  */
-public abstract class ForkedChannelServer
-    implements AutoCloseable
+final class LegacyForkChannel implements ForkChannel
 {
-    private final String channelConfig;
-
-    public ForkedChannelServer( String channelConfig )
+    @Override
+    public String getForkNodeConnectionString()
     {
-        this.channelConfig = channelConfig;
+        return "pipe://";
     }
 
-    public String getChannelConfig()
+    @Nonnull
+    @Override
+    public ExecutableCommandline createExecutableCommandline() throws IOException
     {
-        return channelConfig;
+        return new PipeProcessExecutor();
     }
-
-    public abstract void send( Command command ) throws IOException;
 
     @Override
-    public abstract void close() throws IOException;
+    public void close() throws IOException
+    {
+    }
 }

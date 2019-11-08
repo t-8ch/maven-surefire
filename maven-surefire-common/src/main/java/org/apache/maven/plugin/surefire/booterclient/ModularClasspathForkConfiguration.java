@@ -19,7 +19,6 @@ package org.apache.maven.plugin.surefire.booterclient;
  * under the License.
  */
 
-import org.apache.maven.plugin.surefire.booterclient.lazytestprovider.ExecutableCommandlineFactory;
 import org.apache.maven.plugin.surefire.booterclient.lazytestprovider.OutputStreamFlushableCommandline;
 import org.apache.maven.plugin.surefire.booterclient.output.InPluginProcessDumpSingleton;
 import org.apache.maven.plugin.surefire.log.api.ConsoleLogger;
@@ -29,6 +28,7 @@ import org.apache.maven.surefire.booter.ModularClasspath;
 import org.apache.maven.surefire.booter.ModularClasspathConfiguration;
 import org.apache.maven.surefire.booter.StartupConfiguration;
 import org.apache.maven.surefire.booter.SurefireBooterForkException;
+import org.apache.maven.surefire.extensions.ForkNodeFactory;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ModuleVisitor;
@@ -73,10 +73,10 @@ public class ModularClasspathForkConfiguration
                                               boolean reuseForks,
                                               @Nonnull Platform pluginPlatform,
                                               @Nonnull ConsoleLogger log,
-                                              @Nonnull ExecutableCommandlineFactory executableCommandlineFactory )
+                                              @Nonnull ForkNodeFactory forkNodeFactory )
     {
         super( bootClasspath, tempDirectory, debugLine, workingDirectory, modelProperties, argLine,
-                environmentVariables, debug, forkCount, reuseForks, pluginPlatform, log, executableCommandlineFactory );
+                environmentVariables, debug, forkCount, reuseForks, pluginPlatform, log, forkNodeFactory );
     }
 
     @Override

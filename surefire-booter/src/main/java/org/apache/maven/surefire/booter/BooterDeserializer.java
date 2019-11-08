@@ -58,6 +58,11 @@ public class BooterDeserializer
         properties = SystemPropertyManager.loadProperties( inputStream );
     }
 
+    public String getForkNodeConnectionString()
+    {
+        return properties.getProperty( FORK_NODE_CONNECTION_STRING );
+    }
+
     /**
      * @return PID of Maven process where plugin is executed; or null if PID could not be determined.
      */

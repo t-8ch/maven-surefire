@@ -1,4 +1,4 @@
-package org.apache.maven.plugin.surefire.booterclient.lazytestprovider;
+package org.apache.maven.surefire.extensions;
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -19,17 +19,24 @@ package org.apache.maven.plugin.surefire.booterclient.lazytestprovider;
  * under the License.
  */
 
-import org.apache.maven.plugin.surefire.booterclient.output.ExecutableCommandline;
-
 import javax.annotation.Nonnull;
+import java.io.Closeable;
+import java.io.IOException;
 
 /**
- * @author <a href="mailto:tibordigana@apache.org">Tibor Digana (tibor17)</a>
- * @since 3.0.0-M4
+ * The constructor prepares I/O or throws {@link IOException}. Open channel can be closed and closes all streams.
+ * <br>
+ * The forked JVM uses the {@link #createExecutableCommandline() connection string}.
+ * The executable CLI {@link #createExecutableCommandline()} is using the streams. This method and constructor should
+ * not be blocked while establishing the connection.
  */
-public interface ExecutableCommandlineFactory
+public interface ForkChannel extends Closeable
 {
-    //todo Enrico, the parameter is not needed in Pipes. It is needed in TCP/IP
+    String getForkNodeConnectionString();
+
     @Nonnull
-    ExecutableCommandline<String> createExecutableCommandline( AbstractCommandReader forkInputStream );
+    ExecutableCommandline createExecutableCommandline() throws IOException;
+
+    @Override
+    void close() throws IOException;
 }

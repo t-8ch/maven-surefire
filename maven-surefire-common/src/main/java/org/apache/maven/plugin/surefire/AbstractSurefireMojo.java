@@ -25,8 +25,8 @@ import org.apache.maven.artifact.DefaultArtifact;
 import org.apache.maven.artifact.handler.ArtifactHandler;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.model.Dependency;
-import org.apache.maven.plugin.surefire.booterclient.lazytestprovider.ExecutableCommandlineFactory;
 import org.apache.maven.plugin.surefire.extensions.SurefireConsoleOutputReporter;
+import org.apache.maven.plugin.surefire.extensions.SurefireForkNodeFactory;
 import org.apache.maven.plugin.surefire.extensions.SurefireStatelessReporter;
 import org.apache.maven.plugin.surefire.extensions.SurefireStatelessTestsetInfoReporter;
 import org.apache.maven.plugins.annotations.Component;
@@ -73,6 +73,7 @@ import org.apache.maven.surefire.booter.StartupConfiguration;
 import org.apache.maven.surefire.booter.SurefireBooterForkException;
 import org.apache.maven.surefire.booter.SurefireExecutionException;
 import org.apache.maven.surefire.cli.CommandLineOption;
+import org.apache.maven.surefire.extensions.ForkNodeFactory;
 import org.apache.maven.surefire.providerapi.SurefireProvider;
 import org.apache.maven.surefire.report.ReporterConfiguration;
 import org.apache.maven.surefire.suite.RunResult;
@@ -834,6 +835,8 @@ public abstract class AbstractSurefireMojo
     protected abstract boolean useModulePath();
 
     protected abstract void setUseModulePath( boolean useModulePath );
+
+    protected abstract ForkNodeFactory getForkNode();
 
     /**
      * This plugin MOJO artifact.
@@ -2253,6 +2256,14 @@ public abstract class AbstractSurefireMojo
                                               getConsoleLogger() );
     }
 
+    // todo this is in separate method and can be better tested than whole method createForkConfiguration()
+    @Nonnull
+    private ForkNodeFactory getForkNodeFactory()
+    {
+        ForkNodeFactory forkNode = getForkNode();
+        return forkNode == null ? new SurefireForkNodeFactory() : forkNode;
+    }
+
     @Nonnull
     private ForkConfiguration createForkConfiguration( Platform platform )
     {
@@ -2262,9 +2273,7 @@ public abstract class AbstractSurefireMojo
 
         Classpath bootClasspath = getArtifactClasspath( shadeFire != null ? shadeFire : surefireBooterArtifact );
 
-        //todo Enrico, here should be implementation for pipes and NettyIO depending on MOJO configuration
-        // todo we will create a new @Parameter with POJO object of complex configuration for TCP/IP
-        ExecutableCommandlineFactory executableCommandlineFactory = null;
+        ForkNodeFactory forkNode = getForkNodeFactory();
 
         if ( canExecuteProviderWithModularPath( platform ) )
         {
@@ -2280,7 +2289,7 @@ public abstract class AbstractSurefireMojo
                     reuseForks,
                     platform,
                     getConsoleLogger(),
-                    executableCommandlineFactory );
+                    forkNode );
         }
         else if ( getClassLoaderConfiguration().isManifestOnlyJarRequestedAndUsable() )
         {
@@ -2296,7 +2305,7 @@ public abstract class AbstractSurefireMojo
                     reuseForks,
                     platform,
                     getConsoleLogger(),
-                    executableCommandlineFactory );
+                    forkNode );
         }
         else
         {
@@ -2312,7 +2321,7 @@ public abstract class AbstractSurefireMojo
                     reuseForks,
                     platform,
                     getConsoleLogger(),
-                    executableCommandlineFactory );
+                    forkNode );
         }
     }
 

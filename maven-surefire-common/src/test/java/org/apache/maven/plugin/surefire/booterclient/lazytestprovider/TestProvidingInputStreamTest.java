@@ -27,7 +27,6 @@ import org.junit.Test;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.Thread.State;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.Callable;
@@ -35,6 +34,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.apache.maven.surefire.booter.MasterProcessCommand.BYE_ACK;
 import static org.apache.maven.surefire.booter.MasterProcessCommand.NOOP;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -103,7 +103,9 @@ public class TestProvidingInputStreamTest
         StringBuilder stream = new StringBuilder();
         for ( int i = 0; i < 82; i++ )
         {
-            stream.append( new String( is.readNextCommand(), StandardCharsets.US_ASCII ) );
+            Command cmd = is.readNextCommand();
+            assertThat( cmd.getData(), is( nullValue() ) );
+            stream.append( new String( cmd.getCommandType().encode(), US_ASCII ) );
         }
         assertThat( stream.toString(),
                 is( ":maven-surefire-std-out:testset-finished::maven-surefire-std-out:testset-finished:" ) );
@@ -134,7 +136,9 @@ public class TestProvidingInputStreamTest
         StringBuilder stream = new StringBuilder();
         for ( int i = 0; i < 43; i++ )
         {
-            stream.append( new String( is.readNextCommand(), StandardCharsets.US_ASCII ) );
+            Command cmd = is.readNextCommand();
+            assertThat( cmd.getData(), is( nullValue() ) );
+            stream.append( new String( is.readNextCommand().getCommandType().encode(), US_ASCII ) );
         }
         assertThat( stream.toString(),
                 is( ":maven-surefire-std-out:run-testclass:Test:" ) );
@@ -158,7 +162,8 @@ public class TestProvidingInputStreamTest
                 if ( buffer == null )
                 {
                     idx = 0;
-                    buffer = pluginIs.readNextCommand();
+                    Command cmd = pluginIs.readNextCommand();
+                    buffer = cmd == null ? null : cmd.getCommandType().encode();
                 }
 
                 if ( buffer != null )
@@ -211,7 +216,6 @@ public class TestProvidingInputStreamTest
             {
                 try
                 {
-                    //noinspection ResultOfMethodCallIgnored
                     is.readNextCommand();
                 }
                 catch ( IOException e )

@@ -149,9 +149,10 @@ public class BooterDeserializerStartupConfigurationTest
         BooterSerializer booterSerializer = new BooterSerializer( forkConfiguration );
         String aTest = "aTest";
         File propsTest = booterSerializer.serialize( props, getProviderConfiguration(), startupConfiguration, aTest,
-                false, null, 1 );
+                false, null, 1, null );
         BooterDeserializer booterDeserializer = new BooterDeserializer( new FileInputStream( propsTest ) );
         assertNull( booterDeserializer.getPluginPid() );
+        assertNull( booterDeserializer.getForkNodeConnectionString() );
         return booterDeserializer.getStartupConfiguration();
     }
 

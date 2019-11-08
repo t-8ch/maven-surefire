@@ -19,30 +19,22 @@ package org.apache.maven.plugin.surefire.booterclient.lazytestprovider;
  * under the License.
  */
 
+import org.apache.maven.surefire.extensions.CommandReader;
+
 import java.io.IOException;
 
 import static java.util.Objects.requireNonNull;
 
 /**
- * Reader stream sends bytes to the forked jvm std-input-stream.
+ * Stream reader returns bytes which ar finally sent to the forked jvm std-input-stream.
  *
  * @author <a href="mailto:tibordigana@apache.org">Tibor Digana (tibor17)</a>
  * @since 2.19
  */
 public abstract class AbstractCommandReader
-    implements DifferedChannelCommandSender
+        implements CommandReader, DefferedChannelCommandSender
 {
     private volatile FlushReceiverProvider flushReceiverProvider;
-
-    /**
-     * Waits for the next command and
-     * reads complete stream of encoded {@link org.apache.maven.surefire.booter.MasterProcessCommand command}.
-     *
-     * @return encoded command, or null if closed
-     */
-    public abstract byte[] readNextCommand() throws IOException;
-    public abstract void close();
-    public abstract boolean isClosed();
 
     /**
      * @param flushReceiverProvider the provider for a flush receiver.
@@ -53,7 +45,8 @@ public abstract class AbstractCommandReader
         this.flushReceiverProvider = requireNonNull( flushReceiverProvider );
     }
 
-    protected void tryFlush()
+    @Override
+    public void tryFlush()
         throws IOException
     {
         if ( flushReceiverProvider != null )

@@ -150,7 +150,8 @@ public class TestLessInputStreamBuilderTest
                 if ( buffer == null )
                 {
                     idx = 0;
-                    buffer = pluginIs.readNextCommand();
+                    Command cmd = pluginIs.readNextCommand();
+                    buffer = cmd == null ? null : cmd.getCommandType().encode();
                 }
 
                 if ( buffer != null )
