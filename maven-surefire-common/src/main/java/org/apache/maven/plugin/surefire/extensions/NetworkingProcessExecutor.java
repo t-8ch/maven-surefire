@@ -115,7 +115,6 @@ final class NetworkingProcessExecutor implements ExecutableCommandline
                     {
                         try
                         {
-
                             for ( Command cmd; ( cmd = commands.readNextCommand() ) != null;  )
                             {
                                 MasterProcessCommand cmdType = cmd.getCommandType();
@@ -164,7 +163,6 @@ final class NetworkingProcessExecutor implements ExecutableCommandline
         return new InputStream()
         {
             private final ByteBuffer bb = ByteBuffer.allocate( 64 * 1024 );
-            private int read;
             private boolean closed;
 
             @Override
@@ -177,16 +175,16 @@ final class NetworkingProcessExecutor implements ExecutableCommandline
 
                 try
                 {
-                    if ( read == 0 )
+                    if ( !bb.hasRemaining() )
                     {
                         bb.clear();
-                        read = client.read( bb ).get();
-                        if ( read == 0 )
+                        if ( client.read( bb ).get() == 0 )
                         {
+                            closed = true;
                             return -1;
                         }
+                        bb.flip();
                     }
-                    read--;
                     return bb.get();
                 }
                 catch ( InterruptedException e )
