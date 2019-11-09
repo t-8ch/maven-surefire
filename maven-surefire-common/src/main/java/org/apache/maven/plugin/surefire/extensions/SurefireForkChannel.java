@@ -29,6 +29,9 @@ import java.nio.channels.AsynchronousServerSocketChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static java.net.StandardSocketOptions.SO_KEEPALIVE;
+import static java.net.StandardSocketOptions.SO_REUSEADDR;
+import static java.net.StandardSocketOptions.TCP_NODELAY;
 import static java.nio.channels.AsynchronousChannelGroup.withThreadPool;
 import static java.nio.channels.AsynchronousServerSocketChannel.open;
 import static org.apache.maven.surefire.util.internal.DaemonThreadFactory.newDaemonThreadFactory;
@@ -45,8 +48,11 @@ final class SurefireForkChannel implements ForkChannel
     SurefireForkChannel() throws IOException
     {
         executorService = Executors.newCachedThreadPool( newDaemonThreadFactory() );
-        server = open( withThreadPool( executorService ) )
-                .bind( new InetSocketAddress( 0 ) );
+        server = open( withThreadPool( executorService ) );
+        server.setOption( SO_REUSEADDR, true );
+        server.setOption( TCP_NODELAY, true );
+        server.setOption( SO_KEEPALIVE, true );
+        server.bind( new InetSocketAddress( 0 ) );
         serverPort = ( (InetSocketAddress) server.getLocalAddress() ).getPort();
     }
 
