@@ -21,6 +21,8 @@ package org.apache.maven.plugin.surefire.extensions;
 
 import org.apache.maven.shared.utils.cli.CommandLineUtils;
 import org.apache.maven.shared.utils.cli.Commandline;
+import org.apache.maven.surefire.booter.Command;
+import org.apache.maven.surefire.booter.MasterProcessCommand;
 import org.apache.maven.surefire.extensions.CommandReader;
 import org.apache.maven.surefire.extensions.EventHandler;
 import org.apache.maven.surefire.extensions.ExecutableCommandline;
@@ -28,9 +30,19 @@ import org.apache.maven.surefire.extensions.StdErrStreamLine;
 import org.apache.maven.surefire.extensions.StdOutStreamLine;
 
 import javax.annotation.Nonnull;
-import java.net.ServerSocket;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.AsynchronousServerSocketChannel;
+import java.nio.channels.AsynchronousSocketChannel;
+import java.nio.channels.CompletionHandler;
+import java.util.Scanner;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
+import static java.nio.ByteBuffer.wrap;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 /**
@@ -39,42 +51,168 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
  */
 final class NetworkingProcessExecutor implements ExecutableCommandline
 {
-    private final ServerSocket ss;
+    private final AsynchronousServerSocketChannel server;
+    private final ExecutorService executorService;
 
-    NetworkingProcessExecutor( ServerSocket ss )
+    NetworkingProcessExecutor( AsynchronousServerSocketChannel server, ExecutorService executorService )
     {
-        this.ss = ss;
+        this.server = server;
+        this.executorService = executorService;
     }
 
     @Nonnull
     @Override
     public <T> Callable<Integer> executeCommandLineAsCallable( @Nonnull T cli,
-                                                               @Nonnull CommandReader commands,
-                                                               @Nonnull EventHandler events,
+                                                               @Nonnull final CommandReader commands,
+                                                               @Nonnull final EventHandler events,
                                                                StdOutStreamLine stdOut,
                                                                StdErrStreamLine stdErr,
                                                                @Nonnull Runnable runAfterProcessTermination )
             throws Exception
     {
-        /*
-        Call in Threads:
-
-        Socket s = ss.accept();
-
-        for ( Scanner scanner = new Scanner( s.getInputStream(), "ASCII" ); scanner.hasNextLine(); )
+        server.accept( null, new CompletionHandler<AsynchronousSocketChannel, Object>()
         {
-            events.handleEvent( scanner.nextLine() );
-        }
+            @Override
+            public void completed( final AsynchronousSocketChannel client, Object attachment )
+            {
+                executorService.submit( new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        InputStream is = toInputStream( client );
+                        try
+                        {
+                            for ( Scanner scanner = new Scanner( is, "ASCII" ); scanner.hasNextLine(); )
+                            {
+                                if ( scanner.ioException() != null )
+                                {
+                                    break;
+                                }
+                                events.handleEvent( scanner.nextLine() );
+                            }
+                        }
+                        catch ( IllegalStateException e )
+                        {
+                            // scanner and InputStream is closed
+                            try
+                            {
+                                client.close();
+                            }
+                            catch ( IOException ex )
+                            {
+                                // couldn't close the client channel
+                            }
+                        }
+                    }
+                } );
 
-        Command cmd = commands.readNextCommand();
-        if ( cmd != null )
-        {
-            MasterProcessCommand cmdType = cmd.getCommandType();
-            s.getOutputStream()
-                    .write( cmdType.hasDataType() ? cmdType.encode( cmd.getData() ) : cmdType.encode() );
-        }*/
+                executorService.submit( new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        try
+                        {
+                            for ( Command cmd; ( cmd = commands.readNextCommand() ) != null;  )
+                            {
+                                MasterProcessCommand cmdType = cmd.getCommandType();
+                                byte[] b = cmdType.hasDataType() ? cmdType.encode( cmd.getData() ) : cmdType.encode();
+                                ByteBuffer bb = wrap( b );
+                                int writtenBytesTotal = 0;
+                                do
+                                {
+                                    Future<Integer> writtenBytes = client.write( bb );
+                                    int writtenCount = writtenBytes.get();
+                                    writtenBytesTotal += writtenCount;
+                                }
+                                while ( writtenBytesTotal < bb.limit() );
+                            }
+                        }
+                        catch ( Exception e )
+                        {
+                            // finished stream or error
+                            try
+                            {
+                                client.close();
+                            }
+                            catch ( IOException ex )
+                            {
+                                // couldn't close the client channel
+                            }
+                        }
+                    }
+                } );
+            }
+
+            @Override
+            public void failed( Throwable exc, Object attachment )
+            {
+                // write to dump file
+                // close the server
+            }
+        } );
 
         return CommandLineUtils.executeCommandLineAsCallable( (Commandline) cli, null,
                 new StdOutAdapter( stdOut ), new StdErrAdapter( stdErr ), 0, runAfterProcessTermination, US_ASCII );
+    }
+
+    private static InputStream toInputStream( final AsynchronousSocketChannel client )
+    {
+        return new InputStream()
+        {
+            private final ByteBuffer bb = ByteBuffer.allocate( 64 * 1024 );
+            private int read;
+            private boolean closed;
+
+            @Override
+            public int read() throws IOException
+            {
+                if ( closed )
+                {
+                    return -1;
+                }
+
+                try
+                {
+                    if ( read == 0 )
+                    {
+                        bb.clear();
+                        read = client.read( bb ).get();
+                        if ( read == 0 )
+                        {
+                            return -1;
+                        }
+                    }
+                    read--;
+                    return bb.get();
+                }
+                catch ( InterruptedException e )
+                {
+                    closed = true;
+                    return -1;
+                }
+                catch ( ExecutionException e )
+                {
+                    closed = true;
+                    Throwable cause = e.getCause();
+                    if ( cause instanceof IOException )
+                    {
+                        throw (IOException) cause;
+                    }
+                    else
+                    {
+                        return -1;
+                    }
+                }
+            }
+
+            @Override
+            public void close() throws IOException
+            {
+                closed = true;
+                super.close();
+            }
+        };
     }
 }

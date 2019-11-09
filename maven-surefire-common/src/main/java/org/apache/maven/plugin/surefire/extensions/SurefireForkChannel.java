@@ -24,36 +24,55 @@ import org.apache.maven.surefire.extensions.ForkChannel;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.net.ServerSocket;
+import java.net.InetSocketAddress;
+import java.nio.channels.AsynchronousServerSocketChannel;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import static java.nio.channels.AsynchronousChannelGroup.withThreadPool;
+import static java.nio.channels.AsynchronousServerSocketChannel.open;
+import static org.apache.maven.surefire.util.internal.DaemonThreadFactory.newDaemonThreadFactory;
 
 /**
  *
  */
 final class SurefireForkChannel implements ForkChannel
 {
-    private final ServerSocket ss;
+    private final ExecutorService executorService;
+    private final AsynchronousServerSocketChannel server;
+    private final int serverPort;
 
     SurefireForkChannel() throws IOException
     {
-        ss = new ServerSocket( 0 );
+        executorService = Executors.newCachedThreadPool( newDaemonThreadFactory() );
+        server = open( withThreadPool( executorService ) )
+                .bind( new InetSocketAddress( 0 ) );
+        serverPort = ( (InetSocketAddress) server.getLocalAddress() ).getPort();
     }
 
     @Override
     public String getForkNodeConnectionString()
     {
-        return "tcp://127.0.0.1:" + ss.getLocalPort();
+        return "tcp://127.0.0.1:" + serverPort;
     }
 
     @Nonnull
     @Override
-    public ExecutableCommandline createExecutableCommandline() throws IOException
+    public ExecutableCommandline createExecutableCommandline()
     {
-        return new NetworkingProcessExecutor( ss );
+        return new NetworkingProcessExecutor( server, executorService );
     }
 
     @Override
     public void close() throws IOException
     {
-        ss.close();
+        try
+        {
+            server.close();
+        }
+        finally
+        {
+            executorService.shutdownNow();
+        }
     }
 }
