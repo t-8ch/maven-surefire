@@ -33,9 +33,9 @@ public interface CommandReader
 {
 
     /**
-     * Waits for the next command and reads complete stream of encoded command.
+     * Waits for the next command and returns it.
      *
-     * @return encoded command, or null if closed
+     * @return the command, or null if closed
      */
     Command readNextCommand() throws IOException;
     void close();

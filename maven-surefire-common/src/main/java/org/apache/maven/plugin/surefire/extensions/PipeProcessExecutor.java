@@ -126,7 +126,7 @@ final class PipeProcessExecutor
             }
 
             @SuppressWarnings( "checkstyle:magicnumber" )
-            int b =  currentBuffer[currentPos++] & 0xff;
+            int b = currentBuffer[currentPos++] & 0xff;
             if ( currentPos == currentBuffer.length )
             {
                 currentBuffer = null;
