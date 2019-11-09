@@ -109,13 +109,17 @@ final class NetworkingProcessExecutor implements ExecutableCommandline
                 executorService.submit( new Runnable()
                 {
                     @Override
-                    @SuppressWarnings( "checkstyle:innerassignment" )
                     public void run()
                     {
                         try
                         {
-                            for ( Command cmd; ( cmd = commands.readNextCommand() ) != null;  )
+                            for ( Command cmd; !commands.isClosed();  )
                             {
+                                cmd = commands.readNextCommand();
+                                if ( cmd == null )
+                                {
+                                    break;
+                                }
                                 MasterProcessCommand cmdType = cmd.getCommandType();
                                 byte[] b = cmdType.hasDataType() ? cmdType.encode( cmd.getData() ) : cmdType.encode();
                                 ByteBuffer bb = wrap( b );
