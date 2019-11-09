@@ -40,7 +40,6 @@ import java.util.Scanner;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 import static java.nio.ByteBuffer.wrap;
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -120,14 +119,11 @@ final class NetworkingProcessExecutor implements ExecutableCommandline
                                 MasterProcessCommand cmdType = cmd.getCommandType();
                                 byte[] b = cmdType.hasDataType() ? cmdType.encode( cmd.getData() ) : cmdType.encode();
                                 ByteBuffer bb = wrap( b );
-                                int writtenBytesTotal = 0;
                                 do
                                 {
-                                    Future<Integer> writtenBytes = client.write( bb );
-                                    int writtenCount = writtenBytes.get();
-                                    writtenBytesTotal += writtenCount;
+                                    client.write( bb ).get();
                                 }
-                                while ( writtenBytesTotal < bb.limit() );
+                                while ( bb.hasRemaining() );
                             }
                         }
                         catch ( Exception e )
