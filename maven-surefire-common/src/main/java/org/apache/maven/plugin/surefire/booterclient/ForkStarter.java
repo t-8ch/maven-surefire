@@ -33,8 +33,8 @@ import org.apache.maven.plugin.surefire.booterclient.output.NativeStdErrStreamCo
 import org.apache.maven.plugin.surefire.booterclient.output.ThreadedStreamConsumer;
 import org.apache.maven.plugin.surefire.log.api.ConsoleLogger;
 import org.apache.maven.plugin.surefire.report.DefaultReporterFactory;
-import org.apache.maven.shared.utils.cli.CommandLineCallable;
-import org.apache.maven.shared.utils.cli.CommandLineException;
+import org.apache.maven.surefire.shared.utils.cli.CommandLineCallable;
+import org.apache.maven.surefire.shared.utils.cli.CommandLineException;
 import org.apache.maven.surefire.booter.AbstractPathConfiguration;
 import org.apache.maven.surefire.booter.KeyValueSource;
 import org.apache.maven.surefire.booter.PropertiesWrapper;
@@ -88,9 +88,9 @@ import static org.apache.maven.plugin.surefire.booterclient.ForkNumberBucket.dra
 import static org.apache.maven.plugin.surefire.booterclient.ForkNumberBucket.returnNumber;
 import static org.apache.maven.plugin.surefire.booterclient.lazytestprovider.TestLessInputStream
                       .TestLessInputStreamBuilder;
-import static org.apache.maven.shared.utils.cli.CommandLineUtils.executeCommandLineAsCallable;
-import static org.apache.maven.shared.utils.cli.ShutdownHookUtils.addShutDownHook;
-import static org.apache.maven.shared.utils.cli.ShutdownHookUtils.removeShutdownHook;
+import static org.apache.maven.surefire.shared.utils.cli.CommandLineUtils.executeCommandLineAsCallable;
+import static org.apache.maven.surefire.shared.utils.cli.ShutdownHookUtils.addShutDownHook;
+import static org.apache.maven.surefire.shared.utils.cli.ShutdownHookUtils.removeShutdownHook;
 import static org.apache.maven.surefire.booter.SystemPropertyManager.writePropertiesFile;
 import static org.apache.maven.surefire.cli.CommandLineOption.SHOW_ERRORS;
 import static org.apache.maven.surefire.suite.RunResult.SUCCESS;

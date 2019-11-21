@@ -19,7 +19,7 @@ package org.apache.maven.plugin.surefire.booterclient.output;
  * under the License.
  */
 
-import org.apache.maven.shared.utils.cli.StreamConsumer;
+import org.apache.maven.surefire.shared.utils.cli.StreamConsumer;
 import org.apache.maven.surefire.util.internal.DaemonThreadFactory;
 
 import java.io.Closeable;
