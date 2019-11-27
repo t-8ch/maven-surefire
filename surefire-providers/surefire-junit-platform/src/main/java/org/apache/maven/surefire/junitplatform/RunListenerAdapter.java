@@ -23,8 +23,11 @@ import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.joining;
 import static org.apache.maven.surefire.util.internal.ObjectUtils.systemProps;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
@@ -51,6 +54,7 @@ final class RunListenerAdapter
 
     private final ConcurrentMap<TestIdentifier, Long> testStartTime = new ConcurrentHashMap<>();
     private final ConcurrentMap<TestIdentifier, TestExecutionResult> failures = new ConcurrentHashMap<>();
+    private final Set<TestIdentifier> reportedContainers = Collections.synchronizedSet( new HashSet<>() );
     private final RunListener runListener;
     private volatile TestPlan testPlan;
 
@@ -64,6 +68,7 @@ final class RunListenerAdapter
     {
         this.testPlan = testPlan;
         failures.clear();
+        reportedContainers.clear();
     }
 
     @Override
@@ -71,19 +76,22 @@ final class RunListenerAdapter
     {
         this.testPlan = null;
         testStartTime.clear();
+        reportedContainers.clear();
     }
 
     @Override
     public void executionStarted( TestIdentifier testIdentifier )
     {
-        if ( testIdentifier.isContainer() )
+        testStartTime.put( testIdentifier, System.currentTimeMillis() );
+
+        if ( testIdentifier.isTest() )
         {
-            testStartTime.put( testIdentifier, System.currentTimeMillis() );
-            runListener.testSetStarting( createReportEntry( testIdentifier ) );
-        }
-        else
-        {
-            testStartTime.put( testIdentifier, System.currentTimeMillis() );
+            TestIdentifier parent = testPlan.getParent( testIdentifier ).orElse( null );
+            if ( parent != null && !reportedContainers.contains( parent ) )
+            {
+                runListener.testSetStarting( createReportEntry( parent ) );
+                reportedContainers.add( parent );
+            }
             runListener.testStarting( createReportEntry( testIdentifier ) );
         }
     }
@@ -91,6 +99,11 @@ final class RunListenerAdapter
     @Override
     public void executionFinished( TestIdentifier testIdentifier, TestExecutionResult testExecutionResult )
     {
+
+        if ( !testIdentifier.isTest() && !reportedContainers.contains( testIdentifier ) )
+        {
+            return;
+        }
 
         Integer elapsed = computeElapsedTime( testIdentifier );
         switch ( testExecutionResult.getStatus() )
