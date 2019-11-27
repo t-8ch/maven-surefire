@@ -77,13 +77,12 @@ final class RunListenerAdapter
     @Override
     public void executionStarted( TestIdentifier testIdentifier )
     {
-        if ( testIdentifier.isContainer()
-                        && testIdentifier.getSource().filter( ClassSource.class::isInstance ).isPresent() )
+        if ( testIdentifier.isContainer() )
         {
             testStartTime.put( testIdentifier, System.currentTimeMillis() );
             runListener.testSetStarting( createReportEntry( testIdentifier ) );
         }
-        else if ( testIdentifier.isTest() )
+        else
         {
             testStartTime.put( testIdentifier, System.currentTimeMillis() );
             runListener.testStarting( createReportEntry( testIdentifier ) );
@@ -93,56 +92,49 @@ final class RunListenerAdapter
     @Override
     public void executionFinished( TestIdentifier testIdentifier, TestExecutionResult testExecutionResult )
     {
-        boolean isClass = testIdentifier.isContainer()
-                && testIdentifier.getSource().filter( ClassSource.class::isInstance ).isPresent();
 
-        boolean isTest = testIdentifier.isTest();
-
-        if ( isClass || isTest )
+        Integer elapsed = computeElapsedTime( testIdentifier );
+        switch ( testExecutionResult.getStatus() )
         {
-            Integer elapsed = computeElapsedTime( testIdentifier );
-            switch ( testExecutionResult.getStatus() )
-            {
-                case ABORTED:
-                    if ( isTest )
-                    {
-                        runListener.testAssumptionFailure(
-                                createReportEntry( testIdentifier, testExecutionResult, elapsed ) );
-                    }
-                    else
-                    {
-                        runListener.testSetCompleted( createReportEntry( testIdentifier, testExecutionResult,
-                                systemProps(), null, elapsed ) );
-                    }
-                    break;
-                case FAILED:
-                    if ( !isTest )
-                    {
-                        runListener.testSetCompleted( createReportEntry( testIdentifier, testExecutionResult,
-                                systemProps(), null, elapsed ) );
-                    }
-                    else if ( testExecutionResult.getThrowable()
-                            .filter( AssertionError.class::isInstance ).isPresent() )
-                    {
-                        runListener.testFailed( createReportEntry( testIdentifier, testExecutionResult, elapsed ) );
-                    }
-                    else
-                    {
-                        runListener.testError( createReportEntry( testIdentifier, testExecutionResult, elapsed ) );
-                    }
-                    failures.put( testIdentifier, testExecutionResult );
-                    break;
-                default:
-                    if ( isTest )
-                    {
-                        runListener.testSucceeded( createReportEntry( testIdentifier, null, elapsed ) );
-                    }
-                    else
-                    {
-                        runListener.testSetCompleted(
-                                createReportEntry( testIdentifier, null, systemProps(), null, elapsed ) );
-                    }
-            }
+            case ABORTED:
+                if ( !testIdentifier.isContainer() )
+                {
+                    runListener.testAssumptionFailure(
+                            createReportEntry( testIdentifier, testExecutionResult, elapsed ) );
+                }
+                else
+                {
+                    runListener.testSetCompleted( createReportEntry( testIdentifier, testExecutionResult,
+                            systemProps(), null, elapsed ) );
+                }
+                break;
+            case FAILED:
+                if ( testIdentifier.isContainer() )
+                {
+                    runListener.testSetCompleted( createReportEntry( testIdentifier, testExecutionResult,
+                            systemProps(), null, elapsed ) );
+                }
+                else if ( testExecutionResult.getThrowable()
+                        .filter( AssertionError.class::isInstance ).isPresent() )
+                {
+                    runListener.testFailed( createReportEntry( testIdentifier, testExecutionResult, elapsed ) );
+                }
+                else
+                {
+                    runListener.testError( createReportEntry( testIdentifier, testExecutionResult, elapsed ) );
+                }
+                failures.put( testIdentifier, testExecutionResult );
+                break;
+            default:
+                if ( !testIdentifier.isContainer() )
+                {
+                    runListener.testSucceeded( createReportEntry( testIdentifier, null, elapsed ) );
+                }
+                else
+                {
+                    runListener.testSetCompleted(
+                            createReportEntry( testIdentifier, null, systemProps(), null, elapsed ) );
+                }
         }
     }
 

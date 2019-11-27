@@ -410,11 +410,19 @@ public class JUnitPlatformProviderTest
         InOrder inOrder = inOrder( runListener );
 
         ArgumentCaptor<SimpleReportEntry> report = ArgumentCaptor.forClass( SimpleReportEntry.class );
-        inOrder.verify( runListener )
+        inOrder.verify( runListener, times( 2 ) )
                 .testSetStarting( report.capture() );
-        Assertions.assertThat( report.getValue().getSourceName() )
+
+        SimpleReportEntry engine = report.getAllValues().get( 0 );
+        Assertions.assertThat( engine.getSourceName() )
+            .isEqualTo( "JUnit Jupiter" );
+        Assertions.assertThat( engine.getName() )
+            .isNull();
+
+        SimpleReportEntry testClass = report.getAllValues().get( 1 );
+        Assertions.assertThat( testClass.getSourceName() )
                 .isEqualTo( TestClass1.class.getName() );
-        Assertions.assertThat( report.getValue().getName() )
+        Assertions.assertThat( testClass.getName() )
                 .isNull();
 
         report = ArgumentCaptor.forClass( SimpleReportEntry.class );
@@ -434,12 +442,20 @@ public class JUnitPlatformProviderTest
                 .isNull();
 
         report = ArgumentCaptor.forClass( SimpleReportEntry.class );
-        inOrder.verify( runListener )
+        inOrder.verify( runListener, times( 2 ) )
                 .testSetCompleted( report.capture() );
-        Assertions.assertThat( report.getValue().getSourceName() )
-                .isEqualTo( TestClass2.class.getName() );
-        Assertions.assertThat( report.getValue().getName() )
-                .isNull();
+
+        testClass = report.getAllValues().get( 0 );
+        Assertions.assertThat( testClass.getSourceName() )
+            .isEqualTo( TestClass2.class.getName() );
+        Assertions.assertThat( testClass.getName() )
+            .isNull();
+
+        engine = report.getAllValues().get( 1 );
+        Assertions.assertThat( engine.getSourceName() )
+            .isEqualTo( "JUnit Jupiter" );
+        Assertions.assertThat( engine.getName() )
+            .isNull();
 
         assertThat( executionListener.summaries ).hasSize( 1 );
         TestExecutionSummary summary = executionListener.summaries.get( 0 );

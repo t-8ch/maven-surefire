@@ -35,6 +35,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -153,6 +154,8 @@ public class RunListenerAdapterTest
         adapter.executionStarted( TestIdentifier.from( parent ) );
         verify( listener )
                 .testSetStarting( new SimpleReportEntry( className, null, null, null ) );
+        verify( listener )
+            .testSetStarting( new SimpleReportEntry( engine.getDisplayName(), null, null, null ) );
         verifyNoMoreInteractions( listener );
 
         adapter.executionStarted( TestIdentifier.from( child ) );
@@ -190,7 +193,14 @@ public class RunListenerAdapterTest
                 .isNotEmpty();
         verifyNoMoreInteractions( listener );
 
+        reset( listener );
         adapter.executionFinished( TestIdentifier.from( engine ), successful() );
+
+        report = ArgumentCaptor.forClass( SimpleReportEntry.class );
+        verify( listener ).testSetCompleted( report.capture() );
+        assertThat( report.getValue().getSourceName() )
+            .isEqualTo( engine.getDisplayName() );
+
         verifyNoMoreInteractions( listener );
     }
 
@@ -219,9 +229,11 @@ public class RunListenerAdapterTest
         adapter.testPlanExecutionStarted( plan );
 
         adapter.executionStarted( TestIdentifier.from( engine ) );
+        inOrder.verify( listener ).testSetStarting( any() );
         adapter.executionStarted( TestIdentifier.from( parent ) );
         ArgumentCaptor<SimpleReportEntry> report = ArgumentCaptor.forClass( SimpleReportEntry.class );
         inOrder.verify( listener ).testSetStarting( report.capture() );
+
         assertThat( report.getValue().getSourceName() )
                 .isEqualTo( MyTestClass.class.getName() );
         assertThat( report.getValue().getSourceText() )
@@ -302,6 +314,7 @@ public class RunListenerAdapterTest
         inOrder.verifyNoMoreInteractions();
 
         adapter.executionFinished( TestIdentifier.from( engine ), successful() );
+        inOrder.verify( listener ).testSetCompleted( any() );
         inOrder.verifyNoMoreInteractions();
     }
 
