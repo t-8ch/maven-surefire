@@ -25,7 +25,6 @@ import static org.apache.maven.surefire.util.internal.ObjectUtils.systemProps;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
@@ -223,12 +222,12 @@ final class RunListenerAdapter
      */
     private String[] toClassMethodName( TestIdentifier testIdentifier )
     {
-        Optional<TestSource> testSource = testIdentifier.getSource();
+        TestSource testSource = testIdentifier.getSource().orElse( null );
         String display = testIdentifier.getDisplayName();
 
-        if ( testSource.filter( MethodSource.class::isInstance ).isPresent() )
+        if ( testSource instanceof MethodSource )
         {
-            MethodSource methodSource = testSource.map( MethodSource.class::cast ).get();
+            MethodSource methodSource = (MethodSource) testSource;
             String realClassName = methodSource.getClassName();
 
             String[] source = testPlan.getParent( testIdentifier )
@@ -250,9 +249,9 @@ final class RunListenerAdapter
 
             return new String[] {source[0], source[1], methodDesc, methodDisp};
         }
-        else if ( testSource.filter( ClassSource.class::isInstance ).isPresent() )
+        else if ( testSource instanceof ClassSource )
         {
-            ClassSource classSource = testSource.map( ClassSource.class::cast ).get();
+            ClassSource classSource = (ClassSource) testSource;
             String className = classSource.getClassName();
             String simpleClassName = className.substring( 1 + className.lastIndexOf( '.' ) );
             String source = display.equals( simpleClassName ) ? className : display;
