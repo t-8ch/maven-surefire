@@ -149,6 +149,21 @@ public class JUnitPlatformIT
             .assertContainsText( "testFactory() failed" );
     }
 
+    @Test
+    public void testJupiterEngineWithFailingTestTemplate()
+    {
+        OutputValidator validator = unpack( "junit-platform-engine-jupiter", "-" + junit5Version + "-" + jqwikVersion )
+            .setTestToRun( "FailingTestTemplateTest" )
+            .sysProp( "junit5.version", junit5Version )
+            .sysProp( "jqwik.version", jqwikVersion )
+            .executeTest()
+            .verifyTextInLog( "templatedTest() failed" );
+
+        validator.getSurefireReportsFile( "junitplatformenginejupiter.FailingTestTemplateTest.txt", UTF_8 )
+            .assertContainsText( "templatedTest() failed" );
+    }
+
+    @Test
     public void testVintageEngine()
     {
         unpack( "junit-platform-engine-vintage", "-" + junit5Version + "-" + jqwikVersion )
